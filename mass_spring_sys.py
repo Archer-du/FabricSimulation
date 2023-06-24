@@ -10,21 +10,21 @@ CONNECTION_RADIUS   = 0.15  # 质点自动连接半径
 GRAVITY = ti.Vector([0, -9.8], dt=ti.f32) # 重力场
 dt = 1e-3                   # 时间步长
 
-num_particles       = ti.var(ti.i32, shape=())  # 现有质点数
-spring_stiffness    = ti.var(ti.f32, shape=())  # 弹簧刚度
-paused              = ti.var(ti.i32, shape=())  # 暂停
-damping             = ti.var(ti.f32, shape=())  # 阻尼
+num_particles       = ti.field(ti.i32, shape=())  # 现有质点数
+spring_stiffness    = ti.field(ti.f32, shape=())  # 弹簧刚度
+paused              = ti.field(ti.i32, shape=())  # 暂停
+damping             = ti.field(ti.f32, shape=())  # 阻尼
 # rest_length[i, j] = 0 则 i,j 未连接
-rest_length = ti.var(ti.f32, shape=(MAX_NUM_PARTICLES, MAX_NUM_PARTICLES))
+rest_length = ti.field(ti.f32, shape=(MAX_NUM_PARTICLES, MAX_NUM_PARTICLES))
 
-x = ti.Vector(2, dt=ti.f32, shape=MAX_NUM_PARTICLES) # 位置
-v = ti.Vector(2, dt=ti.f32, shape=MAX_NUM_PARTICLES) # 速度
+x = ti.Vector.field(2, dtype=ti.f32, shape=MAX_NUM_PARTICLES) # 位置
+v = ti.Vector.field(2, dtype=ti.f32, shape=MAX_NUM_PARTICLES) # 速度
 
 M = ti.Matrix(2, 2, dt=ti.f32, shape=(MAX_NUM_PARTICLES, MAX_NUM_PARTICLES))
 J = ti.Matrix(2, 2, dt=ti.f32, shape=(MAX_NUM_PARTICLES, MAX_NUM_PARTICLES))
 A = ti.Matrix(2, 2, dt=ti.f32, shape=(MAX_NUM_PARTICLES, MAX_NUM_PARTICLES))
-F = ti.Vector(2, dt=ti.f32, shape=MAX_NUM_PARTICLES)
-b = ti.Vector(2, dt=ti.f32, shape=MAX_NUM_PARTICLES)
+F = ti.Vector.field(2, dtype=ti.f32, shape=MAX_NUM_PARTICLES)
+b = ti.Vector.field(2, dtype=ti.f32, shape=MAX_NUM_PARTICLES)
 
 spring_stiffness[None] = 10000
 damping[None] = 20  # 恒定阻尼
@@ -272,4 +272,3 @@ while True:
     gui.text(content=f'S: Spring stiffness {spring_stiffness[None]:.1f}', pos=(0, 0.9), color=0x0)
     gui.text(content=f'D: damping {damping[None]:.2f}', pos=(0, 0.85), color=0x0)
     gui.show()
-Jacobi 矩阵
