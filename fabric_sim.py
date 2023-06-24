@@ -35,9 +35,12 @@ drag_damping = 1
 dt = 4e-2 / n
 substeps = int(1 / 60 // dt)
 num_triangles = (n - 1) * (n - 1) * 2
+
+# render arguments
 indices = ti.field(int, shape=num_triangles * 3)
 vertices = ti.Vector.field(3, dtype=float, shape=n * n)
 colors = ti.Vector.field(3, dtype=float, shape=n * n)
+
 
 @ti.dataclass
 class MassPoint:
@@ -48,8 +51,9 @@ class MassPoint:
 
 @ti.dataclass
 class Spring:
-    def __init__(self):
-        self.stiffness = 0
+    def __init__(self, stiffness = 1e6, damping = 1e2):
+        self.stiffness = stiffness
+        self.damping = damping
 
 @ti.dataclass
 class Fabric:
@@ -85,34 +89,6 @@ def initialize_mass_points():
             j * quad_size - 0.5 + random_offset[1]
         ]
         v[i, j] = [0, 0, 0]
-        
-
-# RENDER ======================================
-@ti.kernel
-def initialize_mesh_indices():
-    for i, j in ti.ndrange(n - 1, n - 1):
-        quad_id = (i * (n - 1)) + j
-        # 1st triangle of the square
-        indices[quad_id * 6 + 0] = i * n + j
-        indices[quad_id * 6 + 1] = (i + 1) * n + j
-        indices[quad_id * 6 + 2] = i * n + (j + 1)
-        # 2nd triangle of the square
-        indices[quad_id * 6 + 3] = (i + 1) * n + j + 1
-        indices[quad_id * 6 + 4] = i * n + (j + 1)
-        indices[quad_id * 6 + 5] = (i + 1) * n + j
-
-    for i, j in ti.ndrange(n, n):
-        if (i // 4 + j // 4) % 2 == 0:
-            colors[i * n + j] = (0.22, 0.72, 0.52)
-        else:
-            colors[i * n + j] = (1, 0.334, 0.52)
-
-initialize_mesh_indices()
-
-@ti.kernel
-def update_vertices():
-    for i, j in ti.ndrange(n, n):
-        vertices[i * n + j] = x[i, j]
 
 
 # UPDATE ======================================
@@ -167,21 +143,56 @@ def substep():
 
         # update position
         x[i] += dt * v[i]
+        
+
+# RENDER ======================================
+@ti.kernel
+def initialize_mesh_indices():
+    for i, j in ti.ndrange(n - 1, n - 1):
+        quad_id = (i * (n - 1)) + j
+        # 1st triangle of the square
+        indices[quad_id * 6 + 0] = i * n + j
+        indices[quad_id * 6 + 1] = (i + 1) * n + j
+        indices[quad_id * 6 + 2] = i * n + (j + 1)
+        # 2nd triangle of the square
+        indices[quad_id * 6 + 3] = (i + 1) * n + j + 1
+        indices[quad_id * 6 + 4] = i * n + (j + 1)
+        indices[quad_id * 6 + 5] = (i + 1) * n + j
+
+    for i, j in ti.ndrange(n, n):
+        if (i // 4 + j // 4) % 2 == 0:
+            colors[i * n + j] = (0.22, 0.72, 0.52)
+        else:
+            colors[i * n + j] = (1, 0.334, 0.52)
 
 
+@ti.kernel
+def update_vertices():
+    for i, j in ti.ndrange(n, n):
+        vertices[i * n + j] = x[i, j]
 
+
+fabric = Fabric()
+initialize_mass_points()
 
 # GGUI settings
-window = ti.ui.Window("Fabric Simulation", (2000, 2000))
+window = ti.ui.Window("Fabric Simulation", (1600, 1600))
 canvas = window.get_canvas()
 canvas.set_background_color((0, 0, 0))
+
 scene = ti.ui.Scene()
 camera = ti.ui.Camera()
 
 current_t = 0.0
-initialize_mass_points()
+initialize_mesh_indices()
 
 while window.running:
+    if window.get_event(ti.ui.PRESS):
+        key = window.event.key
+        if key == "q":
+            exit()
+        if key == "k":
+            n = 16
     if current_t > 2.0:
         # Reset
         initialize_mass_points()
@@ -206,4 +217,5 @@ while window.running:
     # Draw a smaller ball to avoid visual penetration
     scene.particles(ball_center, radius=ball_radius * 0.95, color=(0.5, 0.42, 0.8))
     canvas.scene(scene)
+
     window.show()
