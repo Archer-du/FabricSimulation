@@ -112,9 +112,9 @@ class Fabric:
 
         for i, j in ti.ndrange(self.massNum, self.massNum):
             if (i // 4 + j // 4) % 2 == 0:
-                self.colors[i * self.massNum + j] = (0.22, 0.72, 0.52)
+                self.colors[i * self.massNum + j] = (106/255, 90/255, 205/255)
             else:
-                self.colors[i * self.massNum + j] = (1, 0.334, 0.52)
+                self.colors[i * self.massNum + j] = (106/255, 90/255, 205/255)
 
     # RENDER UPDATE -----------
     @ti.kernel
@@ -134,9 +134,9 @@ class Collider:
 
 # GLOBAL CONFIG ===============================
 # fabric config
-fabric1 = Fabric(massNum=64)
-fabric2 = Fabric(massNum=128)
-fabric3 = Fabric(massNum=16)
+fabric1 = Fabric(massNum=16)
+fabric2 = Fabric(massNum=64)
+fabric3 = Fabric(massNum=256)
 sphere = Collider()
 
 # spring config
@@ -162,14 +162,14 @@ camera.position(0.0, 0.0, 3)
 camera.lookat(0.0, 0.0, 0)
 scene.set_camera(camera)
 
-fabric = fabric3
+fabric = fabric1
 currentTime = 0.0
 skeletion = False
 while window.running:
     # global render
     scene.point_light(pos=(0, 1, 2), color=(1, 1, 1))
     scene.ambient_light((0.5, 0.5, 0.5))
-    scene.particles(sphere.center, radius=sphere.radius * 0.95, color=(0.5, 0.42, 0.8))
+    scene.particles(sphere.center, radius=sphere.radius * 0.95, color=(65/255, 105/255, 225/255))
     if skeletion:
         print("skel")
     else:
