@@ -21,11 +21,15 @@ class Fabric:
         self.InitMassPoints()
 
         # render arguments
-        triangleNum = (massNum - 1) * (massNum - 1) * 2
-        self.triangleIndices = ti.field(ti.i32, shape=triangleNum * 3)
+        self.triangleNum = (massNum - 1) * (massNum - 1) * 2
+        self.gridNum = (massNum - 1) * (massNum - 1)
+        self.triangleIndices = ti.field(ti.i32, shape=self.triangleNum * 3)
+        self.gridIndices = ti.field(ti.i32, shape=(2 * self.gridNum * 6))
         self.vertices = ti.Vector.field(3, dtype=ti.f32, shape=massNum * massNum)
-        self.colors = ti.Vector.field(3, dtype=ti.f32, shape=massNum * massNum)
-        self.InitTriangleMesh()
+        self.triangleColors = ti.Vector.field(3, dtype=ti.f32, shape=massNum * massNum)
+        self.gridColors = ti.Vector.field(3, dtype=ti.f32, shape=(self.gridNum * 6))
+        self.InitTriangleMeshIndices()
+        self.InitGridMeshIndices()
 
     def initSpringOffset(self):
         for i in range(-2, 3):
@@ -98,7 +102,7 @@ class Fabric:
 
     # RENDER INIT -------------
     @ti.kernel
-    def InitTriangleMesh(self):
+    def InitTriangleMeshIndices(self):
         for i, j in ti.ndrange(self.massNum - 1, self.massNum - 1):
             quad_id = (i * (self.massNum - 1)) + j
             # 1st triangle of the square
@@ -106,22 +110,44 @@ class Fabric:
             self.triangleIndices[quad_id * 6 + 1] = (i + 1) * self.massNum + j
             self.triangleIndices[quad_id * 6 + 2] = i * self.massNum + (j + 1)
             # 2nd triangle of the square
-            self.triangleIndices[quad_id * 6 + 3] = (i + 1) * self.massNum + j + 1
+            self.triangleIndices[quad_id * 6 + 3] = (i + 1) * self.massNum + (j + 1)
             self.triangleIndices[quad_id * 6 + 4] = i * self.massNum + (j + 1)
             self.triangleIndices[quad_id * 6 + 5] = (i + 1) * self.massNum + j
 
         for i, j in ti.ndrange(self.massNum, self.massNum):
-            if (i // 4 + j // 4) % 2 == 0:
-                self.colors[i * self.massNum + j] = (106/255, 90/255, 205/255)
-            else:
-                self.colors[i * self.massNum + j] = (106/255, 90/255, 205/255)
+                self.triangleColors[i * self.massNum + j] = (106/255, 90/255, 205/255)
+
+    @ti.kernel
+    def InitGridMeshIndices(self):
+        for i, j in ti.ndrange(self.massNum - 1, self.massNum - 1):
+            grid_id = (i * (self.massNum - 1)) + j
+            self.gridIndices[grid_id * 6 + 0] = i * self.massNum + j
+            self.gridIndices[grid_id * 6 + 1] = i * self.massNum + (j + 1)
+            self.gridIndices[grid_id * 6 + 2] = i * self.massNum + j
+            self.gridIndices[grid_id * 6 + 3] = (i + 1) * self.massNum + j
+            self.gridIndices[grid_id * 6 + 4] = i * self.massNum + j
+            self.gridIndices[grid_id * 6 + 5] = (i + 1) * self.massNum + (j + 1)
+            self.gridIndices[grid_id * 6 + 6] = (i + 1) * self.massNum + j
+            self.gridIndices[grid_id * 6 + 7] = i * self.massNum + (j + 1)
+            self.gridIndices[grid_id * 6 + 8] = (i + 1) * self.massNum + (j + 1)
+            self.gridIndices[grid_id * 6 + 9] = (i + 1) * self.massNum + j
+            self.gridIndices[grid_id * 6 + 10] = (i + 1) * self.massNum + (j + 1)
+            self.gridIndices[grid_id * 6 + 11] = i * self.massNum + (j + 1)
+
+            self.gridColors[grid_id * 6 + 0] = (1, 0, 0)
+            self.gridColors[grid_id * 6 + 1] = (1, 0, 0)
+            self.gridColors[grid_id * 6 + 2] = (1, 1, 1)
+            self.gridColors[grid_id * 6 + 3] = (1, 1, 1)
+            self.gridColors[grid_id * 6 + 4] = (1, 0, 0)
+            self.gridColors[grid_id * 6 + 5] = (1, 0, 0)
 
     # RENDER UPDATE -----------
     @ti.kernel
     def UpdateVertices(self):
         for i, j in ti.ndrange(self.massNum, self.massNum):
             self.vertices[i * self.massNum + j] = self.position[i, j]
-        
+
+
 
 @ti.data_oriented
 class Collider:
@@ -148,8 +174,8 @@ GRAVITY = ti.Vector([0, -9.8, 0])
 AIR_DRAG = 1.0
 
 # system arguments
-dt = 1 / 3200
-substeps = int(1 / 60 // dt)
+dt = 1 / 5000
+SUBSTEPS = int(1 / 60 // dt)
 
 
 # GGUI SETTINGS ================================
@@ -170,13 +196,20 @@ while window.running:
     scene.point_light(pos=(0, 1, 2), color=(1, 1, 1))
     scene.ambient_light((0.5, 0.5, 0.5))
     scene.particles(sphere.center, radius=sphere.radius * 0.95, color=(65/255, 105/255, 225/255))
+    
+    fabric.UpdateVertices()
     if skeletion:
-        print("skel")
+        scene.particles(fabric.vertices, 
+                        color = (106/255, 90/255, 205/255), 
+                        radius = 0.1 / fabric.massNum)
+        scene.lines(fabric.vertices, 
+                    indices=fabric.gridIndices, 
+                    color = (0.28, 0, 0), 
+                    width = 10 / fabric.massNum)
     else:
-        fabric.UpdateVertices()
         scene.mesh(fabric.vertices,
                 indices=fabric.triangleIndices,
-                per_vertex_color=fabric.colors,
+                per_vertex_color=fabric.triangleColors,
                 two_sided=True)
 
     # keyboard operation
@@ -204,7 +237,7 @@ while window.running:
         currentTime = 0
 
     # iteration
-    for i in range(substeps):
+    for i in range(SUBSTEPS):
         fabric.UpdateSys()
         currentTime += dt
 
