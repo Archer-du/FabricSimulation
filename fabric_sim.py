@@ -121,23 +121,23 @@ class Fabric:
     def InitGridMeshIndices(self):
         for i, j in ti.ndrange(self.massNum - 1, self.massNum - 1):
             grid_id = (i * (self.massNum - 1)) + j
-            self.gridIndices[grid_id * 6 + 0] = i * self.massNum + j
-            self.gridIndices[grid_id * 6 + 1] = i * self.massNum + (j + 1)
-            self.gridIndices[grid_id * 6 + 2] = i * self.massNum + j
-            self.gridIndices[grid_id * 6 + 3] = (i + 1) * self.massNum + j
-            self.gridIndices[grid_id * 6 + 4] = i * self.massNum + j
-            self.gridIndices[grid_id * 6 + 5] = (i + 1) * self.massNum + (j + 1)
-            self.gridIndices[grid_id * 6 + 6] = (i + 1) * self.massNum + j
-            self.gridIndices[grid_id * 6 + 7] = i * self.massNum + (j + 1)
-            self.gridIndices[grid_id * 6 + 8] = (i + 1) * self.massNum + (j + 1)
-            self.gridIndices[grid_id * 6 + 9] = (i + 1) * self.massNum + j
-            self.gridIndices[grid_id * 6 + 10] = (i + 1) * self.massNum + (j + 1)
-            self.gridIndices[grid_id * 6 + 11] = i * self.massNum + (j + 1)
+            self.gridIndices[grid_id * 12 + 0] = i * self.massNum + j
+            self.gridIndices[grid_id * 12 + 1] = i * self.massNum + (j + 1)
+            self.gridIndices[grid_id * 12 + 2] = i * self.massNum + j
+            self.gridIndices[grid_id * 12 + 3] = (i + 1) * self.massNum + j
+            self.gridIndices[grid_id * 12 + 4] = i * self.massNum + j
+            self.gridIndices[grid_id * 12 + 5] = (i + 1) * self.massNum + (j + 1)
+            self.gridIndices[grid_id * 12 + 6] = (i + 1) * self.massNum + j
+            self.gridIndices[grid_id * 12 + 7] = i * self.massNum + (j + 1)
+            self.gridIndices[grid_id * 12 + 8] = (i + 1) * self.massNum + (j + 1)
+            self.gridIndices[grid_id * 12 + 9] = (i + 1) * self.massNum + j
+            self.gridIndices[grid_id * 12 + 10] = (i + 1) * self.massNum + (j + 1)
+            self.gridIndices[grid_id * 12 + 11] = i * self.massNum + (j + 1)
 
             self.gridColors[grid_id * 6 + 0] = (1, 0, 0)
             self.gridColors[grid_id * 6 + 1] = (1, 0, 0)
-            self.gridColors[grid_id * 6 + 2] = (1, 1, 1)
-            self.gridColors[grid_id * 6 + 3] = (1, 1, 1)
+            self.gridColors[grid_id * 6 + 2] = (1, 0, 0)
+            self.gridColors[grid_id * 6 + 3] = (1, 0, 0)
             self.gridColors[grid_id * 6 + 4] = (1, 0, 0)
             self.gridColors[grid_id * 6 + 5] = (1, 0, 0)
 
@@ -160,7 +160,8 @@ class Collider:
 
 # GLOBAL CONFIG ===============================
 # fabric config
-fabric1 = Fabric(massNum=16)
+fabric0 = Fabric(massNum=8)
+fabric1 = Fabric(massNum=24)
 fabric2 = Fabric(massNum=64)
 fabric3 = Fabric(massNum=256)
 sphere = Collider()
@@ -188,24 +189,26 @@ camera.position(0.0, 0.0, 3)
 camera.lookat(0.0, 0.0, 0)
 scene.set_camera(camera)
 
-fabric = fabric1
+fabric = fabric0
 currentTime = 0.0
 skeletion = False
 while window.running:
     # global render
     scene.point_light(pos=(0, 1, 2), color=(1, 1, 1))
     scene.ambient_light((0.5, 0.5, 0.5))
-    scene.particles(sphere.center, radius=sphere.radius * 0.95, color=(65/255, 105/255, 225/255))
+    scene.particles(sphere.center, 
+                    radius=sphere.radius * 0.95, 
+                    color=(65/255, 105/255, 225/255))
     
     fabric.UpdateVertices()
     if skeletion:
         scene.particles(fabric.vertices, 
-                        color = (106/255, 90/255, 205/255), 
-                        radius = 0.1 / fabric.massNum)
+                        color=(106/255, 90/255, 205/255), 
+                        radius=0.1 / fabric.massNum)
         scene.lines(fabric.vertices, 
                     indices=fabric.gridIndices, 
-                    color = (0.28, 0, 0), 
-                    width = 10 / fabric.massNum)
+                    per_vertex_color=fabric.gridColors, 
+                    width=50 / fabric.massNum)
     else:
         scene.mesh(fabric.vertices,
                 indices=fabric.triangleIndices,
@@ -219,17 +222,23 @@ while window.running:
             exit()
         if key == "c":
             skeletion = not skeletion
+
+        if key == "y":
+            fabric = fabric0
+            currentTime = 0
+            fabric.InitMassPoints()
         if key == "u":
             fabric = fabric1
             currentTime = 0
-
+            fabric.InitMassPoints()
         if key == "i":
             fabric = fabric2
             currentTime = 0
-
+            fabric.InitMassPoints()
         if key == "o":
             fabric = fabric3
             currentTime = 0
+            fabric.InitMassPoints()
     
     # reset
     if currentTime > 2.0:
