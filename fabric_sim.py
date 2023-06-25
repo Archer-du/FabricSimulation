@@ -1,4 +1,4 @@
-# Author: Archer
+# @Author: Archer
 import taichi as ti
 
 ti.init(arch=ti.vulkan)
@@ -17,6 +17,7 @@ class Fabric:
         self.offsets = []
         self.position = ti.Vector.field(3, dtype=ti.f32, shape=(massNum, massNum))
         self.velocity = ti.Vector.field(3, dtype=ti.f32, shape=(massNum, massNum))
+        self.acceler = ti.Vector.field(3, dtype=ti.f32, shape=(massNum, massNum))
         self.initSpringOffset()
         self.InitMassPoints()
 
@@ -48,47 +49,45 @@ class Fabric:
                 j * self.quadSize - self.length / 2 + random_offset[1]
             ]
             self.velocity[i, j] = [0, 0, 0]
+            self.acceler[i, j] = [0, 0, 0]
 
     # SIM UPDATE -----------
     @ti.kernel
-    def UpdateSys(self):
+    def EulerUpdateSys(self):
         # environment adjustment
         for i in ti.grouped(self.position):
             # update velocity: gravity
             self.velocity[i] += GRAVITY * dt
-            # update velocity: air DAMPING
+            # update velocity: air damping
             self.velocity[i] *= ti.exp(-AIR_DRAG * dt)
 
-        # Symplectic Euler analysis
+        # Symplectic Euler method
         for i in ti.grouped(self.position):
             force = ti.Vector([0.0, 0.0, 0.0])
-
             for springOffset in ti.static(self.offsets):
                 j = i + springOffset
                 if 0 <= j[0] < self.massNum and 0 <= j[1] < self.massNum:
-
                     # relative displacement
                     x_ij = self.position[i] - self.position[j]
                     # relative movement
                     v_ij = self.velocity[i] - self.velocity[j]
-
                     # vector normalization
                     e_ij = x_ij.normalized()
                     # modulus length
                     cur_len = x_ij.norm()
                     ori_len = self.quadSize * float(i - j).norm()
-
                     # coefficient balance
                     coe = (self.quadSize / ori_len)
                     k_s = STIFFNESS * coe
                     k_d = DAMPING
-
                     # spring force
                     force += -k_s * e_ij * (cur_len - ori_len)
                     # spring damping
                     force += -k_d * e_ij * v_ij.dot(e_ij)
 
-            self.velocity[i] += (force / self.mass) * dt
+            # update velocity: mass spring anylysis
+            self.acceler[i] = force / self.mass
+            self.velocity[i] += self.acceler[i] * dt
 
         # collision detection
         for i in ti.grouped(self.position):
@@ -99,6 +98,52 @@ class Fabric:
 
             # update position
             self.position[i] += dt * self.velocity[i]
+        
+    @ti.kernel
+    def VerletUpdateSys(self):
+        # environment adjustment
+        for i in ti.grouped(self.position):
+            # update velocity: gravity
+            self.velocity[i] += GRAVITY * dt
+            # update velocity: air damping
+            self.velocity[i] *= ti.exp(-AIR_DRAG * dt)
+
+        # Verlet method
+        for i in ti.grouped(self.position):
+            a_cur = self.acceler[i]
+            self.position[i] += dt * self.velocity[i] + (1/2) * a_cur * (dt ** 2)
+
+            force = ti.Vector([0.0, 0.0, 0.0])
+            for springOffset in ti.static(self.offsets):
+                j = i + springOffset
+                if 0 <= j[0] < self.massNum and 0 <= j[1] < self.massNum:
+                    # relative displacement
+                    x_ij = self.position[i] - self.position[j]
+                    # relative movement
+                    v_ij = self.velocity[i] - self.velocity[j]
+                    # vector normalization
+                    e_ij = x_ij.normalized()
+                    # modulus length
+                    cur_len = x_ij.norm()
+                    ori_len = self.quadSize * float(i - j).norm()
+                    # coefficient balance
+                    coe = (self.quadSize / ori_len)
+                    k_s = STIFFNESS * coe
+                    k_d = DAMPING
+                    # spring force
+                    force += -k_s * e_ij * (cur_len - ori_len)
+                    # spring damping
+                    force += -k_d * e_ij * v_ij.dot(e_ij)
+
+            self.acceler[i] = force / self.mass
+            self.velocity[i] += dt * (a_cur + self.acceler[i]) / 2
+
+        # collision detection
+        for i in ti.grouped(self.position):
+            offset_to_center = self.position[i] - sphere.center[0]
+            if offset_to_center.norm() <= sphere.radius:
+                e = offset_to_center.normalized()
+                self.velocity[i] -= min(self.velocity[i].dot(e), 0) * e
 
     # RENDER INIT -------------
     @ti.kernel
@@ -148,7 +193,6 @@ class Fabric:
             self.vertices[i * self.massNum + j] = self.position[i, j]
 
 
-
 @ti.data_oriented
 class Collider:
     def __init__(self, radius: ti.f32 = 0.3, center: ti.Vector = [0, 0, 0]):
@@ -192,6 +236,7 @@ scene.set_camera(camera)
 fabric = fabric0
 currentTime = 0.0
 skeletion = False
+Verlet = False
 while window.running:
     # global render
     scene.point_light(pos=(0, 1, 2), color=(1, 1, 1))
@@ -222,20 +267,34 @@ while window.running:
             exit()
         if key == "c":
             skeletion = not skeletion
+            if skeletion:
+                print("skeleton")
+            else:
+                print("mesh")
+        if key == "b":
+            Verlet = not Verlet
+            if Verlet:
+                print("Verlet")
+            else:
+                print("Euler")
 
         if key == "y":
+            print("mass num: 8 * 8")
             fabric = fabric0
             currentTime = 0
             fabric.InitMassPoints()
         if key == "u":
+            print("mass num: 24 * 24")
             fabric = fabric1
             currentTime = 0
             fabric.InitMassPoints()
         if key == "i":
+            print("mass num: 64 * 64")
             fabric = fabric2
             currentTime = 0
             fabric.InitMassPoints()
         if key == "o":
+            print("mass num: 256 * 256")
             fabric = fabric3
             currentTime = 0
             fabric.InitMassPoints()
@@ -247,7 +306,10 @@ while window.running:
 
     # iteration
     for i in range(SUBSTEPS):
-        fabric.UpdateSys()
+        if Verlet:
+            fabric.VerletUpdateSys()
+        else:
+            fabric.EulerUpdateSys()
         currentTime += dt
 
     canvas.scene(scene)
