@@ -28,7 +28,7 @@ class Fabric:
         self.gridIndices = ti.field(ti.i32, shape=(2 * self.gridNum * 6))
         self.vertices = ti.Vector.field(3, dtype=ti.f32, shape=massNum * massNum)
         self.triangleColors = ti.Vector.field(3, dtype=ti.f32, shape=massNum * massNum)
-        self.gridColors = ti.Vector.field(3, dtype=ti.f32, shape=(self.gridNum * 6))
+        self.gridColors = ti.Vector.field(3, dtype=ti.f32, shape=massNum * massNum)
         self.InitTriangleMeshIndices()
         self.InitGridMeshIndices()
 
@@ -178,19 +178,22 @@ class Fabric:
             self.gridIndices[grid_id * 12 + 9] = (i + 1) * self.massNum + j
             self.gridIndices[grid_id * 12 + 10] = (i + 1) * self.massNum + (j + 1)
             self.gridIndices[grid_id * 12 + 11] = i * self.massNum + (j + 1)
+            
+        for i, j in ti.ndrange(self.massNum, self.massNum):
+            self.gridColors[i * self.massNum + j] = (0, 1, 0)
 
-            self.gridColors[grid_id * 6 + 0] = (1, 0, 0)
-            self.gridColors[grid_id * 6 + 1] = (1, 0, 0)
-            self.gridColors[grid_id * 6 + 2] = (1, 0, 0)
-            self.gridColors[grid_id * 6 + 3] = (1, 0, 0)
-            self.gridColors[grid_id * 6 + 4] = (1, 0, 0)
-            self.gridColors[grid_id * 6 + 5] = (1, 0, 0)
 
     # RENDER UPDATE -----------
     @ti.kernel
     def UpdateVertices(self):
         for i, j in ti.ndrange(self.massNum, self.massNum):
             self.vertices[i * self.massNum + j] = self.position[i, j]
+
+    @ti.kernel
+    def UpdateForceColor(self):
+        for i, j in ti.ndrange(self.massNum, self.massNum):
+            print("acceler", self.acceler[i, j])
+            self.gridColors[i * self.massNum + j] = (self.acceler[i, j].norm()/300, 1 - self.acceler[i, j].norm()/300, 0)
 
 
 @ti.data_oriented
@@ -236,7 +239,8 @@ scene.set_camera(camera)
 fabric = fabric0
 currentTime = 0.0
 skeletion = False
-Verlet = False
+verlet = False
+showColor = False
 while window.running:
     # global render
     scene.point_light(pos=(0, 1, 2), color=(1, 1, 1))
@@ -267,16 +271,16 @@ while window.running:
             exit()
         if key == "c":
             skeletion = not skeletion
-            if skeletion:
-                print("skeleton")
+            print("skeleton mode") if skeletion else print("mesh mode")
+        if key == "z":
+            if skeletion == False:
+                print("available only in skeleton mode")
             else:
-                print("mesh")
-        if key == "b":
-            Verlet = not Verlet
-            if Verlet:
-                print("Verlet")
-            else:
-                print("Euler")
+                showColor = not showColor
+                print("Force Color") if showColor else print("Mono Color")
+        if key == "v":
+            verlet = not verlet
+            print("Verlet Method") if verlet else print("Euler Method")
 
         if key == "y":
             print("mass num: 8 * 8")
@@ -306,10 +310,16 @@ while window.running:
 
     # iteration
     for i in range(SUBSTEPS):
-        if Verlet:
+        if verlet:
             fabric.VerletUpdateSys()
         else:
             fabric.EulerUpdateSys()
+        
+        if showColor:
+            fabric.UpdateForceColor()
+        else:
+            fabric.InitGridMeshIndices()
+
         currentTime += dt
 
     canvas.scene(scene)
