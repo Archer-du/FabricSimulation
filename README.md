@@ -55,14 +55,17 @@
 欧拉方法的思路是，通过曲线起点和微分方程计算出起点处的斜率，从而得到切线，顺着切线前进得到下一个点，依此类推，便可计算出一条折线。一般情况下，这条折线与原先的未知曲线偏离不远，并且任意小的误差都可以通过减少步长来得到。
 
 欧拉方法的一般形式如下，对一般的微分方程：
+
 $$
 y'(t) = f(t, y(t))
 $$
 
 我们希望用 $y$ 在点 $(t_0,y(t_0))$ 附近的线性近似来得到其近似解，利用时间 $t_n$ 时的数值，可得到时间 $t_{n+1}=t_n+h$时的近似值如下：
+
 $$
 y_{n+1} = y_n+hf(t_n,y_n)
 $$
+
 $h$ 即为步长，在步长较小时，欧拉方法的误差也很小。
 
 #### Verlet方法
@@ -70,12 +73,15 @@ $h$ 即为步长，在步长较小时，欧拉方法的误差也很小。
 Verlet方法是另一种求解离散时间上的积分的方法。
 
 Verlet方法的一般形式如下，考虑函数$f(t+h)$和$f(t-h)$分别在$t$处的展开，有：
+
 $$
 f(t+h)=f(t) + f'(t)h + \frac{1}{2}f''(t)h^2 + \frac{1}{6}f'''(t)h^3 + O(h^4)
 \\
 f(t-h)=f(t) - f'(t)h + \frac{1}{2}f''(t)h^2 - \frac{1}{6}f'''(t)h^3 + O(h^4)
 $$
+
 整理可得：
+
 $$
 f(t+h)=2f(t)-f(t-h)+h^2f''(t)+O(h^4)
 $$
@@ -98,21 +104,26 @@ $$
 f(x_a)_{d} = -k_d \frac{\vec{x_a}-\vec{x_b}}{|\vec{x_a}-\vec{x_b}|}(\vec{v_a} - \vec{v_b})· \frac{\vec{x_a}-\vec{x_b}}{|\vec{x_a}-\vec{x_b}|}
 $$
 
-  确定上述信息后，利用**半隐式欧拉方法（semi-implicit Euler method）**对质点弹簧系统的运动状态进行推导得到：
+  确定上述信息后，利用**半隐式欧拉方法**（semi-implicit Euler method）对质点弹簧系统的运动状态进行推导得到：
 $$
 \begin{cases}
 f_t = \sum^n_{b=0}F(x_a)_s + \sum^n_{b=0}f(x_a)_d
-\\v_{t+dt} = v_t + dt · \frac{f_t}{m}
-\\x_{t+dt} = x_t + dt · v_{t+dt}
+\\
+v_{t+dt} = v_t + dt \dot \frac{f_t}{m}
+\\
+x_{t+dt} = x_t + dt \dot v_{t+dt}
 \end{cases}
 $$
 
-  或是利用 **Velocity Verlet方法**进行推导可得到：
+  或是利用**Velocity Verlet方法**进行推导可得到：
+
 $$
 \begin{cases}
 f_t = \sum^n_{b=0}F(x_a)_s + \sum^n_{b=0}f(x_a)_d
-\\v_{t+dt} = v_t + dt · \frac{\frac{f_t}{m}+\frac{f_{t+dt}}{m}}{2}
-\\x_{t+dt} = x_t + dt · v_{t} + \frac{1}{2}\frac{f_t}{m}(dt)^2
+\\
+v_{t+dt} = v_t + dt \dot \frac{\frac{f_t}{m}+\frac{f_{t+dt}}{m}}{2}
+\\
+x_{t+dt} = x_t + dt \dot v_{t} + \frac{1}{2}\frac{f_t}{m}(dt)^2
 \end{cases}
 $$
 
